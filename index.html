@@ -58,6 +58,8 @@
                 <button id="generate-btn" class="button-primary text-[#261A15] font-bold px-6 py-2 rounded-xl w-full sm:w-auto">Generate</button>
             </div>
 
+            <div id="message-box" class="mt-4 text-center text-sm text-red-400"></div>
+
             <div id="loading-container" class="mt-8 flex justify-center hidden">
                 <div class="loading-spinner"></div>
             </div>
@@ -75,6 +77,21 @@
             const enhanceBtn = document.getElementById('enhance-btn');
             const loadingContainer = document.getElementById('loading-container');
             const generatedImage = document.getElementById('generated-image');
+            const messageBox = document.getElementById('message-box');
+
+            // IMPORTANT: For running this app on your own web server (like GitHub Pages),
+            // you must replace the empty string below with your actual Gemini API Key.
+            // You can get one from Google AI Studio.
+            const apiKey = "AIzaSyCqQKO3IlG2TyQKDhwlggc9bjWyupu6Tm8";
+            const imagenApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+            const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            // Function to display messages to the user
+            const showMessage = (text, isError = false) => {
+                messageBox.textContent = text;
+                messageBox.classList.toggle('text-red-400', isError);
+                messageBox.classList.toggle('text-green-400', !isError && text);
+            };
 
             // Function to handle loading state
             const setLoading = (isLoading) => {
@@ -83,6 +100,7 @@
                     generateBtn.disabled = true;
                     enhanceBtn.disabled = true;
                     generatedImage.style.display = 'none';
+                    showMessage('');
                 } else {
                     loadingContainer.classList.add('hidden');
                     generateBtn.disabled = false;
@@ -95,14 +113,11 @@
                 const userPrompt = promptInput.value.trim();
 
                 if (!userPrompt) {
-                    alert('Please enter a description for the image!');
+                    showMessage('Please enter a description for the image!', true);
                     return;
                 }
 
                 setLoading(true);
-
-                const apiKey = "AIzaSyDebpozC6mpgh23avcE12tDptxkPSlefIM";
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
 
                 const payload = {
                     instances: { prompt: userPrompt },
@@ -115,7 +130,7 @@
 
                 const makeRequest = async () => {
                     try {
-                        const response = await fetch(apiUrl, {
+                        const response = await fetch(imagenApiUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -138,13 +153,14 @@
                             const imageUrl = `data:image/png;base64,${base64Data}`;
                             generatedImage.src = imageUrl;
                             generatedImage.style.display = 'block';
+                            showMessage('Image generated successfully!', false);
                         } else {
                             console.error('Image data not found in response:', result);
-                            alert('Sorry, no image was generated. Please try a different prompt.');
+                            showMessage('Sorry, no image was generated. Please try a different prompt.', true);
                         }
                     } catch (error) {
                         console.error('Error generating image:', error);
-                        alert('Sorry, an error occurred while generating the image.');
+                        showMessage('Sorry, an error occurred while generating the image.', true);
                     } finally {
                         setLoading(false);
                     }
@@ -158,14 +174,11 @@
                 const userPrompt = promptInput.value.trim();
 
                 if (!userPrompt) {
-                    alert('Please enter a simple prompt to enhance!');
+                    showMessage('Please enter a simple prompt to enhance!', true);
                     return;
                 }
 
                 setLoading(true);
-
-                const apiKey = "";
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
                 const systemPrompt = "Act as a world-class prompt engineer for a generative image model. Take the following simple user prompt and expand it into a detailed, descriptive, and creative prompt for an AI image generator. The output should be a single sentence that includes details about the subject, setting, lighting, style, and mood. The refined prompt should be more likely to produce a high-quality, artistic image.";
                 const payload = {
@@ -179,7 +192,7 @@
 
                 const makeRequest = async () => {
                     try {
-                        const response = await fetch(apiUrl, {
+                        const response = await fetch(geminiApiUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -200,13 +213,14 @@
                         
                         if (refinedPrompt) {
                             promptInput.value = refinedPrompt;
+                            showMessage('Prompt enhanced!', false);
                         } else {
                             console.error('Refined prompt not found in response:', result);
-                            alert('Sorry, I couldn\'t enhance the prompt. Please try again.');
+                            showMessage('Sorry, I couldn\'t enhance the prompt. Please try again.', true);
                         }
                     } catch (error) {
                         console.error('Error enhancing prompt:', error);
-                        alert('Sorry, an error occurred while enhancing the prompt.');
+                        showMessage('Sorry, an error occurred while enhancing the prompt.', true);
                     } finally {
                         setLoading(false);
                     }
