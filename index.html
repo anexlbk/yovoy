@@ -51,6 +51,10 @@
 
             <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full">
                 <input id="prompt-input" type="text" placeholder="A cozy Algerian café, vector art" class="flex-grow w-full px-4 py-2 rounded-xl bg-[#6D5B4C] text-[#F5EFE6] border border-[#A47C49] focus:outline-none focus:ring-2 focus:ring-[#A47C49]">
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full mt-4">
+                <button id="enhance-btn" class="button-primary text-[#261A15] font-bold px-6 py-2 rounded-xl w-full sm:w-auto">✨ Enhance Prompt</button>
                 <button id="generate-btn" class="button-primary text-[#261A15] font-bold px-6 py-2 rounded-xl w-full sm:w-auto">Generate</button>
             </div>
 
@@ -68,10 +72,25 @@
         document.addEventListener('DOMContentLoaded', () => {
             const promptInput = document.getElementById('prompt-input');
             const generateBtn = document.getElementById('generate-btn');
+            const enhanceBtn = document.getElementById('enhance-btn');
             const loadingContainer = document.getElementById('loading-container');
-            const imageContainer = document.getElementById('image-container');
             const generatedImage = document.getElementById('generated-image');
 
+            // Function to handle loading state
+            const setLoading = (isLoading) => {
+                if (isLoading) {
+                    loadingContainer.classList.remove('hidden');
+                    generateBtn.disabled = true;
+                    enhanceBtn.disabled = true;
+                    generatedImage.style.display = 'none';
+                } else {
+                    loadingContainer.classList.add('hidden');
+                    generateBtn.disabled = false;
+                    enhanceBtn.disabled = false;
+                }
+            };
+
+            // Event listener for the "Generate" button
             generateBtn.addEventListener('click', async () => {
                 const userPrompt = promptInput.value.trim();
 
@@ -80,22 +99,16 @@
                     return;
                 }
 
-                // Show loading spinner
-                loadingContainer.classList.remove('hidden');
-                generatedImage.style.display = 'none';
+                setLoading(true);
 
-                const apiKey = ""; // Leave as-is
+                const apiKey = "";
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
 
                 const payload = {
-                    instances: {
-                        prompt: userPrompt
-                    },
-                    parameters: {
-                        sampleCount: 1
-                    }
+                    instances: { prompt: userPrompt },
+                    parameters: { sampleCount: 1 }
                 };
-                
+
                 let retries = 0;
                 const maxRetries = 5;
                 const baseDelay = 1000;
@@ -127,16 +140,75 @@
                             generatedImage.style.display = 'block';
                         } else {
                             console.error('Image data not found in response:', result);
-                            // Display a user-friendly error message
                             alert('Sorry, no image was generated. Please try a different prompt.');
                         }
                     } catch (error) {
                         console.error('Error generating image:', error);
-                        // Display a user-friendly error message
                         alert('Sorry, an error occurred while generating the image.');
                     } finally {
-                        // Hide loading spinner
-                        loadingContainer.classList.add('hidden');
+                        setLoading(false);
+                    }
+                };
+
+                makeRequest();
+            });
+
+            // Event listener for the "Enhance Prompt" button
+            enhanceBtn.addEventListener('click', async () => {
+                const userPrompt = promptInput.value.trim();
+
+                if (!userPrompt) {
+                    alert('Please enter a simple prompt to enhance!');
+                    return;
+                }
+
+                setLoading(true);
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const systemPrompt = "Act as a world-class prompt engineer for a generative image model. Take the following simple user prompt and expand it into a detailed, descriptive, and creative prompt for an AI image generator. The output should be a single sentence that includes details about the subject, setting, lighting, style, and mood. The refined prompt should be more likely to produce a high-quality, artistic image.";
+                const payload = {
+                    contents: [{ parts: [{ text: `Here is the user's prompt: ${userPrompt}` }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+
+                let retries = 0;
+                const maxRetries = 5;
+                const baseDelay = 1000;
+
+                const makeRequest = async () => {
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 429 && retries < maxRetries) {
+                                const delay = baseDelay * Math.pow(2, retries);
+                                retries++;
+                                setTimeout(makeRequest, delay);
+                                return;
+                            }
+                            throw new Error(`API request failed with status: ${response.status}`);
+                        }
+
+                        const result = await response.json();
+                        const refinedPrompt = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                        
+                        if (refinedPrompt) {
+                            promptInput.value = refinedPrompt;
+                        } else {
+                            console.error('Refined prompt not found in response:', result);
+                            alert('Sorry, I couldn\'t enhance the prompt. Please try again.');
+                        }
+                    } catch (error) {
+                        console.error('Error enhancing prompt:', error);
+                        alert('Sorry, an error occurred while enhancing the prompt.');
+                    } finally {
+                        setLoading(false);
                     }
                 };
 
